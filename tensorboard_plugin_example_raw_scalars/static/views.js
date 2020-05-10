@@ -15,47 +15,10 @@
 
 // Generic view builders.
 
-/**
- * @param {!Map<string, !Array<Object>>} tagsToScalars
- * @return {!DocumentFragment}
- */
-// export function createPreviews(tagsToScalars) {
-//   const fragment = document.createDocumentFragment();
-//
-//   if (!tagsToScalars.size) {
-//     const messageElement = createElement('h2');
-//     messageElement.textContent = 'No tags found.';
-//     fragment.appendChild(messageElement);
-//     return fragment;
-//   }
-//
-//   /**
-//    * For each tag, build UI in this form:
-//    *   <div class="preview">
-//    *     <div class="tagname">${tag}</div>
-//    *     <textarea class="preview-text">${result}</textarea>
-//    *   </div>
-//    */
-//   for (let [tag, scalars] of tagsToScalars) {
-//     const previewEl = createElement('div', 'preview');
-//     const tagNameEl = createElement('div', 'tagname');
-//     const textPreviewEl = createElement('textarea', 'preview-text');
-//     tagNameEl.textContent = tag;
-//     textPreviewEl.textContent = scalars
-//       ? JSON.stringify(scalars)
-//       : 'No scalar data found.';
-//     previewEl.appendChild(tagNameEl);
-//     previewEl.appendChild(textPreviewEl);
-//     fragment.appendChild(previewEl);
-//   }
-//   return fragment;
-// }
-
 
 export function createPreviews(dataInfo){
   const fragment = document.createDocumentFragment();
   if (Object.keys(dataInfo).length == 0){
-    alert("bad size");
     const messageElement = createElement('h2');
     messageElement.textContent = 'No data selected.';
     fragment.appendChild(messageElement);
@@ -87,7 +50,6 @@ function createElement(tag, className) {
 
 
 // Appended codes from now on
-
 export function createModelSelector(models){
     /**
    * Build a component in this form:

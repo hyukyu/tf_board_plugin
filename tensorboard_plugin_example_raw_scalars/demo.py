@@ -38,11 +38,11 @@ def main(unused_argv):
     writer = tf.summary.create_file_writer("demo_logs/testing1")
     with writer.as_default():
         tf.summary.write("datasets", dataset_name, step=0)
-        tf.summary.write("dataset_path", "/home/hkkang/debugging/irnet_qgm_transformer/data/{}".format(dataset_name), step=0)
+        tf.summary.write("{}_path".format(dataset_name), "/home/hkkang/{}".format(dataset_name), step=0)
         examples = [{
             "query": "what is your name?",
             "query_type": ["none", "none", "none", "none"],
-            "db": ["student_1"],
+            "db": ["academic"],
             "schema": ["student", "teacher", "school"],
             "gold": "SELECT * FROM table WHERE name=kyle",
             "pred": "SELECT * FROM table WHERE name=dave",

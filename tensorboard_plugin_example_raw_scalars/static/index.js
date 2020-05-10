@@ -90,6 +90,9 @@ export async function render() {
 
   // Body
   document.body.appendChild(previewContainer);
+
+  // Append schema graph
+  // document.body.appendChild(sth);
 }
 
 async function updateDatasetSelector(modelSelector, datasetSelector, dataIndexSelector, container){
@@ -136,6 +139,18 @@ async function updateDataText(modelSelector, datasetSelector, dataIndexSelector,
   }
   container.textContent = '';
   container.appendChild(preview);
+
+
+  const requestedDB = data.db;
+  const params = new URLSearchParams({requestedModel, requestedDataset, requestedDB});
+  const path = `./image?${params}`;
+  var img = document.createElement("img");
+  const result = await fetch(path);
+  let tmp = (await result.json()) || {};
+  img.src = 'data:image/png;base64,'.concat(tmp["test"]);
+  img.style.width= "1000px";
+  img.style.height = "1000px";
+  container.appendChild(img);
 }
 
 function removeOptions(selectElement) {

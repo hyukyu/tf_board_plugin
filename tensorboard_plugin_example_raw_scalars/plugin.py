@@ -37,13 +37,13 @@ from tensorboard.util import tensor_util
 from tensorboard.plugins.scalar import metadata
 
 _SCALAR_PLUGIN_NAME = metadata.PLUGIN_NAME
-_PLUGIN_DIRECTORY_PATH_PART = "/data/plugin/my_new_plugin/"
+_PLUGIN_DIRECTORY_PATH_PART = "/data/plugin/QGM_analyzer/"
 
 
 class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
     """Raw summary example plugin for TensorBoard."""
 
-    plugin_name = "my_new_plugin"
+    plugin_name = "QGM_analyzer"
 
     def __init__(self, context):
         """Instantiates ExampleRawScalarsPlugin.
@@ -61,8 +61,32 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
             "/datasets": self.serve_datasets,
             "/data_indices": self.serve_data_indices,
             "/data": self.serve_data,
+            "/image": self.serve_image,
             "/static/*": self._serve_static_file,
         }
+
+    @wrappers.Request.application
+    def serve_image(self, request):
+        model = request.args.get("requestedModel")
+        dataset = request.args.get("requestedDataset")
+        db = request.args.get("requestedDB")
+
+        try:
+            tensor_event = self._multiplexer.Tensors(model, "{}_path".format(dataset))[0]
+            dataset_path = tensor_event.tensor_proto.string_val[0].decode("utf-8")
+        except:
+            raise errors.NotFoundError("No dataset path found")
+
+        schema_image_path = "{}/schema_images/{}.png".format(dataset_path, db)
+
+        import base64
+        image_file = open(schema_image_path, 'rb')
+        encoded_string = base64.b64encode(image_file.read())
+
+        test = {
+            "test": encoded_string
+        }
+        return http_util.Respond(request, test, "application/json")
 
     @wrappers.Request.application
     def _serve_tags(self, request):
@@ -118,8 +142,6 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
         except:
             print("no data for model:{} dataset:{}",format(model, dataset))
 
-        print("{} {}".format(model, dataset))
-        print(data_indices)
         return http_util.Respond(request, data_indices, "application/json")
 
 
@@ -160,6 +182,10 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
         schema = self.get_data(model, dataset, "schema", data_idx)
         gold = self.get_data(model, dataset, "gold", data_idx)
         pred = self.get_data(model, dataset, "pred", data_idx)
+        dataset_path = self.get_data(model, dataset, "path", 0)
+
+        # Read in image
+        print(os.getcwd())
 
         body = {
             "query": query,
@@ -168,9 +194,26 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
             "schema": schema,
             "gold": gold,
             "pred": pred,
+            "path": dataset_path,
         }
 
         return http_util.Respond(request, body, "application/json")
+
+    @wrappers.Request.application
+    def serve_dataset_path(self, request):
+        model = request.args.get("model")
+        dataset = request.args.get("dataset")
+        # Get dataset path
+        try:
+            tensor_event = self._multiplexer.Tensors(model, "{}_path".format(dataset))[0]
+            path = tensor_event.tensor_proto.string_val[0].decode("utd-8")
+        except KeyError:
+            raise errors.NotFoundError("No dataset path found")
+
+        dataset_path = {
+            'path': path
+        }
+        return http_util.Respond(request, dataset_path, "application/json")
 
     def is_active(self):
         """Returns whether there is relevant data for the plugin to process.
