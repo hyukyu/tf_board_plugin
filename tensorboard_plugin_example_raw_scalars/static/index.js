@@ -128,7 +128,7 @@ async function updateDataIndexSelector(modelSelector, datasetSelector, dataIndex
 }
 
 async function updateDataText(modelSelector, datasetSelector, dataIndexSelector, container){
-  container.textContent = "Loading...";
+  container.textContent = "Loading data...";
   const requestedModel = modelSelector.value;
   const requestedDataset = datasetSelector.value;
   const requestedDataIndex = dataIndexSelector.value;
@@ -140,17 +140,39 @@ async function updateDataText(modelSelector, datasetSelector, dataIndexSelector,
   container.textContent = '';
   container.appendChild(preview);
 
-
+  // Get schema image
   const requestedDB = data.db;
   const params = new URLSearchParams({requestedModel, requestedDataset, requestedDB});
   const path = `./image?${params}`;
   var img = document.createElement("img");
   const result = await fetch(path);
   let tmp = (await result.json()) || {};
-  img.src = 'data:image/png;base64,'.concat(tmp["test"]);
+  img.src = 'data:image/png;base64,'.concat(tmp["image"]);
   img.style.width= "1000px";
   img.style.height = "1000px";
   container.appendChild(img);
+
+  // Get encoded image
+  const tensors = await Data.getTensorInfo(requestedModel, requestedDataset, requestedDataIndex);
+  for (let[tag, value_list] of Object.entries(tensors)){
+    value_list.forEach(function(item, index){
+        var img2 = document.createElement("img");
+        img2.src = 'data:image/png;base64,'.concat(item);
+        img2.style.width = "850px";
+        img2.style.height = "850px";
+        container.appendChild(img2);
+    });
+  }
+
+  // Get inference scores
+  const scores = await Data.getInferenceInfo(requestedModel, requestedDataset, requestedDataIndex);
+  for (let[tag, value] of Object.entries(scores)){
+    var img3 = document.createElement("img");
+    img3.src = 'data:image/png;base64,'.concat(value);
+    img3.style.width = "850px";
+    img3.style.height = "850px";
+    container.appendChild(img3);
+  }
 }
 
 function removeOptions(selectElement) {

@@ -28,6 +28,8 @@ export function createPreviews(dataInfo){
     const element = createElement('div', tag);
     const textPreviewEL = createElement('textarea', tag.concat('-text'))
     textPreviewEL.textContent = value;
+    textPreviewEL.rows = '2';
+    textPreviewEL.cols = '150';
     element.appendChild(textPreviewEL);
     fragment.appendChild(element);
   }

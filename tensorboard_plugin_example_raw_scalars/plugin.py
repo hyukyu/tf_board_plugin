@@ -24,6 +24,9 @@ import functools
 import json
 import mimetypes
 import os
+import pickle
+import base64
+import tensorboard_plugin_example_raw_scalars.utils as utils
 
 import six
 from werkzeug import wrappers
@@ -52,6 +55,7 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
           context: A base_plugin.TBContext instance.
         """
         self._multiplexer = context.multiplexer
+        self._logs = {}
 
     def get_plugin_apps(self):
         return {
@@ -62,31 +66,130 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
             "/data_indices": self.serve_data_indices,
             "/data": self.serve_data,
             "/image": self.serve_image,
+            "/tensor": self.serve_tensor,
+            "/inference": self.serve_inference,
             "/static/*": self._serve_static_file,
         }
 
     @wrappers.Request.application
+    def serve_inference(self, request):
+        model = request.args.get('model')
+        dataset_name = request.args.get("dataset")
+        data_idx = int(request.args.get("index"))
+
+        try:
+            log = self._logs[model]
+
+            # Get grammar
+            grammar = log['grammar']
+
+            # To-Do: Check dataset for each data
+            assert dataset_name in [tmp['name'] for tmp in log['dataset']]
+            data = log['data'][data_idx]
+
+            # Get inference score tensors
+            scores = data['pred_tensors']
+            preds = data['pred']
+            columns = data['columns']
+            tables = data['tables']
+
+            body = {}
+            # Draw image
+            for idx, (value, pred) in enumerate(zip(scores, preds)):
+                key = "inference step {}".format(idx)
+                # Determin arg1
+                if pred[0] == "C":
+                    arg1 = columns
+                elif pred[0] == "T":
+                    arg1 = tables
+                else:
+                    arg1 = grammar
+                img = utils.draw_inference_score(arg1, value, key)
+                encoded_img = base64.b64encode(img.read())
+                body[key] = encoded_img
+        except:
+            raise RuntimeError("inference info not found")
+
+        return http_util.Respond(request, body, "application/json")
+
+    @wrappers.Request.application
+    def serve_tensor(self, request):
+        model = request.args.get("model")
+        dataset_name = request.args.get("dataset")
+        data_idx = int(request.args.get("index"))
+        try:
+            log = self._logs[model]
+
+            # To-Do: Check dataset for each data
+            assert dataset_name in [tmp['name'] for tmp in log['dataset']]
+            data = log['data'][data_idx]
+
+            query = data['query']
+            columns = data['columns']
+            tables = data['tables']
+
+            nls = query + columns + tables
+
+            # Get weight tensors
+            weight_tensors = [value for key, value in data.items() if 'weight_tensors' in key and 'relation' not in key]
+            relation_weight_tensors = [value for key, value in data.items() if 'relation_weight_tensors' in key]
+
+            body = {}
+            # Create image for weight tensors
+            for idx, values in enumerate(weight_tensors):
+                key = 'weight_tensor_layer_{}'.format(idx)
+                body[key] = []
+                for idx_2, value in enumerate(values):
+                    # Create image
+                    img = utils.draw_heat_map(nls, value, 'att_layer_{}_head_{}'.format(idx, idx_2))
+                    encoded_img = base64.b64encode(img.read())
+                    img.close()
+                    body[key] += [encoded_img]
+
+            # Create image for relation_weight_tensors
+            for idx, value in enumerate(relation_weight_tensors):
+                key = 'relation_weight_tensor_layer_{}'.format(idx)
+                body[key] = []
+                for idx_2, value in enumerate(values):
+                    # Create image
+                    img = utils.draw_heat_map(nls, value, 're_att_layer_{}_{}'.format(idx, idx_2))
+                    encoded_img = base64.b64encode(img.read())
+                    img.close()
+                    body[key] += [encoded_img]
+
+        except:
+            raise RuntimeError("No tensor found")
+
+        return http_util.Respond(request, body, "application/json")
+
+    @wrappers.Request.application
     def serve_image(self, request):
         model = request.args.get("requestedModel")
-        dataset = request.args.get("requestedDataset")
+        dataset_name = request.args.get("requestedDataset")
         db = request.args.get("requestedDB")
 
         try:
-            tensor_event = self._multiplexer.Tensors(model, "{}_path".format(dataset))[0]
-            dataset_path = tensor_event.tensor_proto.string_val[0].decode("utf-8")
+            # Get dataset path
+            log = self._logs[model]
+
+            # To-Do: Check dataset for each data
+            assert dataset_name in [tmp['name'] for tmp in log['dataset']]
+            dataset_path = [dataset['path'] for dataset in log['dataset'] if dataset['name'] == dataset_name][0]
+
+            # Read schema image
+            image_path = "{}/schema_images/{}.png".format(dataset_path, db)
+
+            with open(image_path, 'rb') as f:
+                encoded_string = base64.b64encode(f.read())
+
+            encoded_image = {
+                "image": encoded_string
+            }
+
         except:
-            raise errors.NotFoundError("No dataset path found")
+            raise RuntimeError("No dataset path found")
 
-        schema_image_path = "{}/schema_images/{}.png".format(dataset_path, db)
-
-        import base64
-        image_file = open(schema_image_path, 'rb')
-        encoded_string = base64.b64encode(image_file.read())
-
-        test = {
-            "test": encoded_string
-        }
-        return http_util.Respond(request, test, "application/json")
+        return http_util.Respond(request, encoded_image, "application/json")
 
     @wrappers.Request.application
     def _serve_tags(self, request):
@@ -106,9 +209,15 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
 
     @wrappers.Request.application
     def _serve_models(self, request):
-        runs = self._multiplexer.Runs()
-        run_names = {run: run for run in runs.keys()}
-        return http_util.Respond(request, run_names, "application/json")
+        paths = self._multiplexer._paths
+        tag_names = {}
+        for tag, path in paths.items():
+            if 'eval.pkl' in os.listdir(path):
+                tag_names[tag] = tag
+                # Read in
+                with open(os.path.join(path, 'eval.pkl'), "rb") as f:
+                    self._logs[tag] = pickle.load(f)
+        return http_util.Respond(request, tag_names, "application/json")
 
     @wrappers.Request.application
     def serve_datasets(self, request):
@@ -122,11 +231,13 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
         model = request.args.get("model")
         datasets = {}
         try:
-            for idx, item in enumerate(self._multiplexer.Tensors(model, "datasets")):
-                dataset = item.tensor_proto.string_val[0].decode("utf-8")
-                datasets[dataset] = dataset
+            for key, log in self._logs.items():
+                if key == model:
+                    for dataset in log['dataset']:
+                        dataset_name = dataset['name']
+                        datasets[dataset_name] = dataset_name
         except:
-            print("No datasets for model: {}".format(model))
+            raise RuntimeError("No datasets for model: {}".format(model))
 
         return http_util.Respond(request, datasets, "application/json")
 
@@ -136,11 +247,15 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
         dataset = request.args.get("dataset")
         data_indices = {}
         try:
-            # get total number of steps for model and dataset
-            num = len(self._multiplexer.Tensors(model, "{}_query".format(dataset)))
+            log = self._logs[model]
+            # To-Do: Check dataset for each data
+            assert dataset in [tmp['name'] for tmp in log['dataset']]
+
+            # Get total number of datas
+            num = len(log['data'])
             data_indices = {str(idx): str(idx) for idx in range(num)}
         except:
-            print("no data for model:{} dataset:{}",format(model, dataset))
+            raise RuntimeError("no data for model:{} dataset:{}",format(model, dataset))
 
         return http_util.Respond(request, data_indices, "application/json")
 
@@ -175,27 +290,35 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
     def serve_data(self, request):
         model = request.args.get("model")
         dataset = request.args.get("dataset")
-        data_idx = request.args.get("index")
-        query = self.get_data(model, dataset, "query", data_idx)
-        query_type = self.get_data(model, dataset, "query_type", data_idx)
-        db = self.get_data(model, dataset, "db", data_idx)
-        schema = self.get_data(model, dataset, "schema", data_idx)
-        gold = self.get_data(model, dataset, "gold", data_idx)
-        pred = self.get_data(model, dataset, "pred", data_idx)
-        dataset_path = self.get_data(model, dataset, "path", 0)
+        data_idx = int(request.args.get("index"))
 
-        # Read in image
-        print(os.getcwd())
+        try:
+            log = self._logs[model]
 
-        body = {
-            "query": query,
-            "queryType": query_type,
-            "db": db,
-            "schema": schema,
-            "gold": gold,
-            "pred": pred,
-            "path": dataset_path,
-        }
+            # To-Do: Check dataset for each data
+            assert dataset in [tmp['name'] for tmp in log['dataset']], "dataset doesn't match"
+
+            info = log['data'][data_idx]
+            assert info['idx'] == data_idx, "data index doesn't match"
+
+            query = info['query']
+            columns = info['columns']
+            tables = info['tables']
+            db = info['db']
+            gold = info['gold']
+            pred = info['pred']
+
+            body = {
+                "query": query,
+                "columns": columns,
+                "tables": tables,
+                "db": db,
+                "gold": gold,
+                "pred": pred,
+            }
+
+        except:
+            raise RuntimeError("No data found")
 
         return http_util.Respond(request, body, "application/json")
 
@@ -227,14 +350,6 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
 
     def frontend_metadata(self):
         return base_plugin.FrontendMetadata(es_module_path="/static/index.js")
-
-    def get_data(self, model, dataset, tag, data_idx):
-        try:
-            tensor_event = self._multiplexer.Tensors(model, "{}_{}".format(dataset, tag))[int(data_idx)]
-            value = tensor_event.tensor_proto.string_val[0].decode("utf-8")
-        except KeyError:
-            raise errors.NotFoundError("No data found")
-        return value
 
     def get_dataset_path(self, run, dataset):
         try:
