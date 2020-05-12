@@ -80,33 +80,19 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
         try:
             log = self._logs[model]
 
-            # Get grammar
-            grammar = log['grammar']
-
             # To-Do: Check dataset for each data
             assert dataset_name in [tmp['name'] for tmp in log['dataset']]
             data = log['data'][data_idx]
 
             # Get inference score tensors
-            scores = data['pred_tensors']
-            preds = data['pred']
-            columns = data['columns']
-            tables = data['tables']
+            inference = data['inference']
 
             body = {}
-            # Draw image
-            for idx, (value, pred) in enumerate(zip(scores, preds)):
-                key = "inference step {}".format(idx)
-                # Determin arg1
-                if pred[0] == "C":
-                    arg1 = columns
-                elif pred[0] == "T":
-                    arg1 = tables
-                else:
-                    arg1 = grammar
-                img = utils.draw_inference_score(arg1, value, key)
-                encoded_img = base64.b64encode(img.read())
-                body[key] = encoded_img
+            for idx, image_path in enumerate(inference):
+                with open(image_path, 'rb') as f:
+                    encoded_img = base64.b64encode(f.read())
+                    body['inference step {}'.format(idx)] = encoded_img
+
         except:
             raise RuntimeError("inference info not found")
 
@@ -124,38 +110,29 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
             assert dataset_name in [tmp['name'] for tmp in log['dataset']]
             data = log['data'][data_idx]
 
-            query = data['query']
-            columns = data['columns']
-            tables = data['tables']
-
-            nls = query + columns + tables
-
             # Get weight tensors
             weight_tensors = [value for key, value in data.items() if 'weight_tensors' in key and 'relation' not in key]
             relation_weight_tensors = [value for key, value in data.items() if 'relation_weight_tensors' in key]
 
             body = {}
             # Create image for weight tensors
-            for idx, values in enumerate(weight_tensors):
-                key = 'weight_tensor_layer_{}'.format(idx)
+            for layer_idx, layer in enumerate(weight_tensors):
+                key = 'weight_tensor_layer_{}'.format(layer_idx)
                 body[key] = []
-                for idx_2, value in enumerate(values):
-                    # Create image
-                    img = utils.draw_heat_map(nls, value, 'att_layer_{}_head_{}'.format(idx, idx_2))
-                    encoded_img = base64.b64encode(img.read())
-                    img.close()
-                    body[key] += [encoded_img]
+                for head_idx, head_path in enumerate(layer):
+                    # Read image
+                    with open(head_path, "rb") as f:
+                        encoded_img = base64.b64encode(f.read())
+                        body[key] += [encoded_img]
 
-            # Create image for relation_weight_tensors
-            for idx, value in enumerate(relation_weight_tensors):
-                key = 'relation_weight_tensor_layer_{}'.format(idx)
+            for layer_idx, layer in enumerate(relation_weight_tensors):
+                key = 'relation_weight_tensor_layer_{}'.format(layer_idx)
                 body[key] = []
-                for idx_2, value in enumerate(values):
-                    # Create image
-                    img = utils.draw_heat_map(nls, value, 're_att_layer_{}_{}'.format(idx, idx_2))
-                    encoded_img = base64.b64encode(img.read())
-                    img.close()
-                    body[key] += [encoded_img]
+                for head_idx, head_path in enumerate(layer):
+                    # Read image
+                    with open(head_path, "rb") as f:
+                        encoded_img = base64.b64encode(f.read())
+                        body[key] += [encoded_img]
 
         except:
             raise RuntimeError("No tensor found")
@@ -212,10 +189,10 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
         paths = self._multiplexer._paths
         tag_names = {}
         for tag, path in paths.items():
-            if 'eval.pkl' in os.listdir(path):
+            if 'result.pkl' in os.listdir(path):
                 tag_names[tag] = tag
                 # Read in
-                with open(os.path.join(path, 'eval.pkl'), "rb") as f:
+                with open(os.path.join(path, 'result.pkl'), "rb") as f:
                     self._logs[tag] = pickle.load(f)
         return http_util.Respond(request, tag_names, "application/json")
 
@@ -245,7 +222,6 @@ class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
     def serve_data_indices(self, request):
         model = request.args.get("model")
         dataset = request.args.get("dataset")
-        data_indices = {}
         try:
             log = self._logs[model]
             # To-Do: Check dataset for each data
