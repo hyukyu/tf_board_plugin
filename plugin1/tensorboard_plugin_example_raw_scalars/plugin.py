@@ -18,25 +18,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
-import csv
-import functools
-import json
 import mimetypes
 import os
 import pickle
 import base64
-import tensorboard_plugin_example_raw_scalars.utils as utils
 
 import six
 from werkzeug import wrappers
-import werkzeug
 
 from tensorboard import errors
-from tensorboard import plugin_util
 from tensorboard.backend import http_util
 from tensorboard.plugins import base_plugin
-from tensorboard.util import tensor_util
 from tensorboard.plugins.scalar import metadata
 
 _SCALAR_PLUGIN_NAME = metadata.PLUGIN_NAME

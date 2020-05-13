@@ -14,7 +14,6 @@
 # ==============================================================================
 """Tests for the example plugin."""
 
-import os
 import ntpath
 import posixpath
 import unittest
@@ -24,7 +23,7 @@ from werkzeug import test
 from werkzeug import wrappers
 
 from tensorboard.plugins import base_plugin
-from tensorboard_plugin_example_raw_scalars import plugin
+from plugin1.tensorboard_plugin_example_raw_scalars import plugin
 
 
 def is_path_safe(path):
