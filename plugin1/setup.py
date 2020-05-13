@@ -24,14 +24,14 @@ import setuptools
 # at runtime.
 # See https://packaging.python.org/specifications/entry-points/
 setuptools.setup(
-    name="tensorboard_plugin_example_raw_scalars",
+    name="tensorboard_plugin_analyzer",
     version="0.1.0",
     description="Sample TensorBoard plugin.",
-    packages=["tensorboard_plugin_example_raw_scalars"],
-    package_data={"tensorboard_plugin_example_raw_scalars": ["static/**"],},
+    packages=["tensorboard_plugin_analyzer"],
+    package_data={"tensorboard_plugin_analyzer": ["static/**"],},
     entry_points={
         "tensorboard_plugins": [
-            "raw_scalars = tensorboard_plugin_example_raw_scalars.plugin:ExampleRawScalarsPlugin",
+            "raw_scalars = tensorboard_plugin_analyzer.plugin:AnalyzerPlugin",
         ],
     },
 )

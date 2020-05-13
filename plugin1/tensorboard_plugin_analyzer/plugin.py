@@ -35,7 +35,7 @@ _SCALAR_PLUGIN_NAME = metadata.PLUGIN_NAME
 _PLUGIN_DIRECTORY_PATH_PART = "/data/plugin/QGM_analyzer/"
 
 
-class ExampleRawScalarsPlugin(base_plugin.TBPlugin):
+class AnalyzerPlugin(base_plugin.TBPlugin):
     """Raw summary example plugin for TensorBoard."""
 
     plugin_name = "QGM_analyzer"
