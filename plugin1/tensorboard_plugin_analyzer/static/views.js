@@ -62,6 +62,13 @@ export function createPreviews(dataInfo){
       if (tag == 'query'){
         right_element.textContent = value.join(' ');
       }
+      else if (tag == 'gold' || tag == 'pred'){
+        const str = [];
+        for (const item of value){
+          str.push(item.join('(').concat(')'));
+        }
+        right_element.textContent = str.join(', ');
+      }
       else{
         right_element.textContent = value;
       }
