@@ -275,12 +275,14 @@ class AnalyzerPlugin(base_plugin.TBPlugin):
             db = info['db']
             gold = info['gold']
             pred = info['pred']
+            sql = info['sql']
 
             body = {
                 "query": query,
                 "columns": columns,
                 "tables": tables,
                 "db": db,
+                "sql": sql,
                 "gold": gold,
                 "pred": pred,
             }

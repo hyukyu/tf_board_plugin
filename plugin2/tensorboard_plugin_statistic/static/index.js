@@ -52,11 +52,6 @@ export async function render() {
   document.body.appendChild(runSelector);
   document.body.appendChild(previewContainer);
 
-  // Here we add statistic
-  const requestedRun = runSelector.value;
-  const dataInfo = await Data.getDataInfo(requestedRun);
-  const new_preview = Views.createStatisticViews(dataInfo);
-  document.body.appendChild(new_preview);
 }
 
 /**
@@ -67,13 +62,18 @@ export async function render() {
 async function updatePreview(runSelector, container) {
   container.textContent = 'Loading...';
   const requestedRun = runSelector.value;
-  const tagsToScalars = await Model.getTagsToScalars(requestedRun);
-  const preview = Views.createPreviews(tagsToScalars);
+  //const tagsToScalars = await Model.getTagsToScalars(requestedRun);
+  //const preview = Views.createPreviews(tagsToScalars);
 
   // Cancel the update if the UI has a different run selected.
   if (runSelector.value !== requestedRun) {
     return;
   }
   container.textContent = '';
-  container.appendChild(preview);
+  //container.appendChild(preview);
+
+  // Here we add statistic
+  const dataInfo = await Data.getDataInfo(requestedRun);
+  const new_preview = Views.createStatisticViews(dataInfo);
+  container.appendChild(new_preview);
 }

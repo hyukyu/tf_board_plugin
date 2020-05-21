@@ -158,5 +158,16 @@ class StatisticPlugin(base_plugin.TBPlugin):
     @wrappers.Request.application
     def calculate_statistic(self, request):
         run = request.args.get("run")
-        body = {""}
-        return http_util.Respond(request, body, "application/json")
+        # Filters
+        filters = {}
+        for idx, data in enumerate(self._logs[run]['data']):
+            value = data['filter']
+            if value not in filters:
+                filters[value] = [idx]
+                filters['{}_cnt'.format(value)] = 1
+                # filters[value] = 1
+            else:
+                filters[value] += [idx]
+                filters['{}_cnt'.format(value)] += 1
+                # filters[value] += 1
+        return http_util.Respond(request, filters, "application/json")

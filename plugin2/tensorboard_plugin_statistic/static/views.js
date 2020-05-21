@@ -86,6 +86,15 @@ function createElement(tag, className) {
 
 export function createStatisticViews(dataInfo){
   const fragment = document.createDocumentFragment();
-  alert("here");
+  for (let[filter_tag, num] of Object.entries(dataInfo)){
+    const previewEl = createElement('div', 'preview');
+    const tagNameEl = createElement('div', 'tagname');
+    const textPreviewEl = createElement('textarea', 'num');
+    tagNameEl.textContent = filter_tag;
+    textPreviewEl.textContent = num;
+    previewEl.appendChild(tagNameEl);
+    previewEl.appendChild(textPreviewEl);
+    fragment.appendChild(previewEl);
+  }
   return fragment;
 }
